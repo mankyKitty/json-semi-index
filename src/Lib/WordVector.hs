@@ -12,6 +12,8 @@ module Lib.WordVector
   , emptyBV
   ) where
 
+import Debug.Trace (traceShowId)
+
 import           Control.Lens                              (Index, IxValue,
                                                             Ixed, ix,
                                                             makeClassy, (%~))
@@ -59,21 +61,26 @@ wordSize = 64
 
 setBit :: (Ixed b, BitWise (IxValue b), Bits (IxValue b), Index b ~ Int) => Int -> b -> b
 setBit nth = ix (nth `div` wordSize) %~ (bit (nth `mod` wordSize) .|.)
+{-# INLINE setBit #-}
 
 (.?.) :: (Ixed b, BitWise (IxValue b), Bits (IxValue b), Index b ~ Int) => Int -> b -> Bool
 (.?.) nth bv = fromMaybe False $ bv L.^? ix (nth `div` wordSize) . bitAt (nth `mod` wordSize)
+{-# INLINE (.?.) #-}
 
 (.!?.) :: (Ixed b, BitWise (IxValue b), Bits (IxValue b), Index b ~ Int) => Int -> b -> Bool
 (.!?.) n v = not (n .?. v)
+{-# INLINE (.!?.) #-}
 
 emptyBV :: ByteString -> Vector Word64
 emptyBV bs = V.replicate (1 + (BS8.length bs `div` wordSize)) 0
 
 buildJsonSemiIndex :: ByteString -> BPSemiIndex
 buildJsonSemiIndex "" = emptyBPSemiIndex
-buildJsonSemiIndex bs = mk . L.view L._1 $ L.ifoldl f ((mempty,mempty,mempty), False, 0) (BS8.unpack bs)
+buildJsonSemiIndex bs = mk . L.view L._1 $ L.ifoldl f ((ebv, ebv, ebv), False, 0) (BS8.unpack bs)
   where
+    ebv = emptyBV bs
     mk (a,b,c) = BPSemiIndex a b c
+
     f i ((pos, bpA, bpB), inStr, bpn) c
       | inStr    && c == '"' = ((         pos,            bpA,            bpB), False, bpn)
       | inStr    && c /= '"' = ((         pos,            bpA,            bpB), inStr, bpn)
@@ -87,7 +94,7 @@ findClose :: Int -> BPSemiIndex -> Maybe Int
 findClose r (BPSemiIndex {..})
   | r == 0                                                   = Nothing
   | (op - 2) .!?. _bpSIUpperBP || (op - 2) .!?. _bpSILowerBP = Nothing
-  | otherwise                                                = fromIntegral <$> go' (0::Word) _bpSIUpperBP _bpSILowerBP (op - 1)
+  | otherwise                                                = go' (0::Word) _bpSIUpperBP _bpSILowerBP (op - 1)
   where
     go' s ba bb cur
       | s == 0 && cur .!?. ba && cur .!?. bb = Just cur
@@ -100,5 +107,7 @@ findClose r (BPSemiIndex {..})
 
 getFinalChar :: BPSemiIndex -> ByteString -> Int -> Maybe Char
 getFinalChar bp@(BPSemiIndex {..}) inp rnk = BS8.index inp
-  . fromIntegral . S1.select1 _bpSIPositions . fromIntegral
+  . fromIntegral -- from Count
+  . S1.select1 _bpSIPositions
+  . fromIntegral
   <$> findClose rnk bp

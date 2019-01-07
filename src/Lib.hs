@@ -24,7 +24,6 @@ buildPrintIndex :: ByteString -> IO ()
 buildPrintIndex inp = do
   let
     bpSI      = WV.buildJsonSemiIndex inp
-    closeRnk  = WV.findClose 1 bpSI
 
     positions = bpSI ^. WV.bpSIPositions
     upperBP   = bpSI ^. WV.bpSIUpperBP
@@ -32,14 +31,14 @@ buildPrintIndex inp = do
 
   BS8.putStrLn ""
   BS8.putStrLn "BitVectors!"
-  BS8.putStrLn $ "Input  " <> inp
-  BS8.putStrLn $ "Length " <> bshow (BS8.length inp)
-  BS8.putStrLn $ "Pos 3  " <> bitShowBS positions
-  BS8.putStrLn $ "BP 3 A " <> bitShowBS upperBP
-  BS8.putStrLn $ "BP 3 B " <> bitShowBS lowerBP
+  BS8.putStrLn $ "Input    " <> inp
+  BS8.putStrLn $ "Length   " <> bshow (BS8.length inp)
+  BS8.putStrLn $ "Pos      " <> bitShowBS positions
+  BS8.putStrLn $ "BP Upper " <> bitShowBS upperBP
+  BS8.putStrLn $ "BP Lower " <> bitShowBS lowerBP
 
-  print $ "Close Rank @  " <> bshow closeRnk
-  print $ "Close Char @  " <> bshow (S1.select1 positions . fromIntegral <$> closeRnk)
+  print $ "Close Rank @  " <> bshow (WV.findClose 1 bpSI)
+  print $ "Close Char @  " <> bshow (S1.select1 positions . fromIntegral <$> WV.findClose 1 bpSI)
   print $ "Close Char =  " <> bshow (WV.getFinalChar bpSI inp 1)
 
 canHazClose :: IO ()
